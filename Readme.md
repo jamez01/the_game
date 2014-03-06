@@ -12,6 +12,5 @@ This is a small example game I am writing to learn how to use Gosu.  The game wi
 ### Dependencies:
 * Gosu
 * Ruby
-* SDL
 
 
