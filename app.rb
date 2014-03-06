@@ -28,7 +28,6 @@ class GameWindow < Gosu::Window
     ## Handle movement
     @shots.reject! { |shot| (shot.x > 1024 or shot.y > 768) or (shot.x < 0 or shot.y < 0) }
     @shots.each { |shot| shot.update }
-    puts @shots.count
   end
 
   def draw
