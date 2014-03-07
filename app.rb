@@ -8,6 +8,7 @@ class GameWindow < Gosu::Window
   def initialize
     super 1024, 768, false
     self.caption = "Two ships shooting at eachother."
+    @background_image = Gosu::Image.new(self, "media/Space.png", true)
     @player_one = Player.new(self)
     @player_one.move(self.width - @player_one.image.width/2, self.height - @player_one.image.height/2)
     @player_two = Player.new(self)
@@ -15,6 +16,8 @@ class GameWindow < Gosu::Window
     @players = [@player_one,@player_two]
     @shots = []
     @walls = []
+    @score_one = Gosu::Font.new(self, Gosu::default_font_name, 20)
+    @score_two = Gosu::Font.new(self, Gosu::default_font_name, 20)
     4.times do |t|
       # Player One Walls
       wall = Wall.new(self)
@@ -81,6 +84,9 @@ class GameWindow < Gosu::Window
   end
 
   def draw
+    @background_image.draw(0, 0, 0)
+    @score_two.draw("Player Two: #{@player_two.score}", 10, 10, 100, 1.0, 1.0, 0xffffff00)
+    @score_one.draw("Player One: #{@player_one.score}", self.width-@score_one.text_width("Player One: #{@player_one.score}") - 10, 10, 100, 1.0, 1.0, 0xffffff00)
     @walls.each { |wall| wall.draw }
     @player_one.draw
     @player_two.draw
@@ -133,6 +139,7 @@ end
 class Player < GameObject
   attr_accessor :score
   def initialize(window,x=nil,y=nil)
+    @death_sound =  Gosu::Sample.new(window, "media/death.wav")
     @score = 0
     @z = 2
     super window,"media/Starfighter.bmp", x || window.height / 2, y || window.width / 2, 0
@@ -153,6 +160,7 @@ class Player < GameObject
   end
   def die
     # Respawn in random location
+    @death_sound.play
     move(rand(@window.width-@image.width)+@image.width,rand(@window.height-@image.height)+@image.height,rand(360))
   end
 end
@@ -161,12 +169,14 @@ end
 class Shot < GameObject
   attr_reader :player,:origin_x,:origin_y
   def initialize(window,player)
+    @sound = Gosu::Sample.new(window, "media/laser.wav")
     @player = player # need to know the owner of the shot.
     @origin_x = @player.x
     @origin_y = @player.y
     @rotation = @player.rotation
     @z = 1
     super window,"media/Shot.bmp", @origin_x, @origin_y
+    @sound.play
   end
 
 ## Make shots move across screen
