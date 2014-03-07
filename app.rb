@@ -2,8 +2,9 @@ require 'gosu'
 
 ## Game Window
 class GameWindow < Gosu::Window
-  attr_reader :shots, :player_one, :player_two
+  attr_reader :shots, :player_one, :player_two, :players, :walls
 
+  ## Initialize players, shots, etc.
   def initialize
     super 1024, 768, false
     self.caption = "Two ships shooting at eachother."
@@ -11,7 +12,22 @@ class GameWindow < Gosu::Window
     @player_one.move(self.width - @player_one.image.width/2, self.height - @player_one.image.height/2)
     @player_two = Player.new(self)
     @player_two.move(@player_two.image.width/2,@player_two.image.height/2)
+    @players = [@player_one,@player_two]
     @shots = []
+    @walls = []
+    4.times do |t|
+      # Player One Walls
+      wall = Wall.new(self)
+      wall.y = self.height/2 + wall.image.height * 2  - (wall.image.height * t)
+      wall.x = self.width - wall.image.height * 3
+      @walls << wall
+      # Player Two walls
+      wall = Wall.new(self)
+      wall.y = self.height/2 + wall.image.height * 2 - (wall.image.height * t)
+      wall.x = wall.image.height * 3
+      @walls << wall
+    end
+    #(rand(5)+5).times { @walls << Wall.new(self) }
   end
 
   def update
@@ -41,24 +57,37 @@ class GameWindow < Gosu::Window
     if button_down? Gosu::KbW then
       @player_two.forward
     end
-
-    # Exit with ESC
     if button_down? Gosu::KbE then
       @shots << Shot.new(self,@player_two) unless
         @shots.select {|shot| shot.player == @player_two and Gosu::distance(shot.x, shot.y, shot.origin_x, shot.origin_y) < 300}.count > 0 # Don't shoot if just shot
     end
 
     ## Handle shooting
-    @shots.reject! { |shot| (shot.x > 1024 or shot.y > 768) or (shot.x < 0 or shot.y < 0) } # Remove shots that are off screen
-    @shots.each { |shot| shot.update }
+    @shots.reject! {
+      |shot| (shot.x > 1024 or shot.y > 768) or (shot.x < 0 or shot.y < 0)  or @walls.select { |wall|  Gosu::distance(shot.x, shot.y, wall.x, wall.y) < wall.image.width  }.count > 0
+
+    } # Remove shots that are off screen
+    @shots.each { |shot|
+      ## Handle collision detection.
+      @players.each {|player|
+        if player != shot.player and Gosu::distance(shot.x, shot.y, player.x, player.y) < shot.image.height/2
+          shot.player.score += 1  # Increase shooters score
+          player.die  # make player respaon
+          @shots -= [shot] # Remove shot from screen.
+        end
+      }
+      shot.update
+    }
   end
 
   def draw
+    @walls.each { |wall| wall.draw }
     @player_one.draw
     @player_two.draw
     @shots.each { |shot| shot.draw }
   end
 
+  ## Exit on escape key
   def button_down(id)
     if id == Gosu::KbEscape
       close
@@ -68,8 +97,8 @@ end
 
 ## Basic Game Object will be inherited by other objects
 class GameObject
-  attr_accessor :score
-  attr_reader :rotation, :z, :x, :y, :image
+  attr_accessor :score, :x, :y
+  attr_reader :rotation, :z, :image
 
   def initialize(window,image_file,x=0,y=0,z=0)
     @window = window
@@ -90,10 +119,21 @@ class GameObject
   end
 end
 
+## Walls
+class Wall < GameObject
+  def initialize(window,x=nil,y=nil)
+    super window,"media/Wall.png", @x, @y
+    @x ||= rand(window.width - @image.width * 3) + @image.width * 2
+    @y ||= rand(window.height - @image.height * 3) + @image.height * 3
+    @z = 1
+  end
+end
+
 ## Player object.  Handles space ships
 class Player < GameObject
   attr_accessor :score
   def initialize(window,x=nil,y=nil)
+    @score = 0
     @z = 2
     super window,"media/Starfighter.bmp", x || window.height / 2, y || window.width / 2, 0
   end
@@ -104,10 +144,17 @@ class Player < GameObject
     @rotation -= 3
   end
   def forward
-    @x += Gosu::offset_x(@rotation, 5) unless @x + @image.width/2 + Gosu::offset_x(@rotation, 5) > @window.width or @x - @image.width/2 + Gosu::offset_x(@rotation, 5) < 0
-    @y += Gosu::offset_y(@rotation, 5) unless @y + @image.height/2 + Gosu::offset_y(@rotation, 5) > @window.height or @y - @image.height/2 + Gosu::offset_y(@rotation, 5) < 0
+    @x += Gosu::offset_x(@rotation, 5) unless (@x + @image.width/2 + Gosu::offset_x(@rotation, 5) > @window.width or
+      @x - @image.width/2 + Gosu::offset_x(@rotation, 5) < 0) or
+      @window.walls.select {|wall| Gosu::distance(Gosu::offset_x(@rotation, 5), Gosu::offset_y(@rotation, 5), wall.x, wall.y) < wall.image.height/2 }.count > 0
+    @y += Gosu::offset_y(@rotation, 5) unless (@y + @image.height/2 + Gosu::offset_y(@rotation, 5) > @window.height or
+      @y - @image.height/2 + Gosu::offset_y(@rotation, 5) < 0) or
+      @window.walls.select {|wall| Gosu::distance(Gosu::offset_x(@rotation, 5), Gosu::offset_y(@rotation, 5), wall.x, wall.y) < wall.image.height/2 }.count > 0
   end
-
+  def die
+    # Respawn in random location
+    move(rand(@window.width-@image.width)+@image.width,rand(@window.height-@image.height)+@image.height,rand(360))
+  end
 end
 
 ## Shot Object handles players shooting.
@@ -122,7 +169,7 @@ class Shot < GameObject
     super window,"media/Shot.bmp", @origin_x, @origin_y
   end
 
-  ## Make shots move across screen
+## Make shots move across screen
   def update
     @x += Gosu::offset_x(@rotation, 10)
     @y += Gosu::offset_y(@rotation, 10)
