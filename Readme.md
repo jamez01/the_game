@@ -13,7 +13,7 @@ This is a small example game I am writing to learn how to use Gosu.  The game wi
 
 #### Player 2:
 * A: Turn Left
-* B: Turn Right
+* D: Turn Right
 * W: Move Forward
 * E: Shoot
 
