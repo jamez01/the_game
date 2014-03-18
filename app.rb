@@ -66,8 +66,11 @@ class GameWindow < Gosu::Window
     end
 
     ## Handle shooting
-    @shots.reject! {
-      |shot| (shot.x > 1024 or shot.y > 768) or (shot.x < 0 or shot.y < 0)  or @walls.select { |wall|  Gosu::distance(shot.x, shot.y, wall.x, wall.y) < wall.image.width  }.count > 0
+    @shots.reject! { |shot|
+        (shot.x > 1024 or shot.y > 768) or (shot.x < 0 or shot.y < 0)  or
+        @walls.select { |wall|
+          Gosu::distance(shot.x, shot.y, wall.x, wall.y) < wall.image.width
+        }.count > 0
 
     } # Remove shots that are off screen
     @shots.each { |shot|
